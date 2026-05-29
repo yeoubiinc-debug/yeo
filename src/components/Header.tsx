@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, memo, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ShoppingBag, Search, Globe, ChevronDown, User, LogOut, Shield, Phone, Mail } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import SearchModal from "./SearchModal";
+const SearchModal = lazy(() => import("./SearchModal"));
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -111,6 +111,9 @@ const Header = () => {
                 src="/logo-placeholder.png"
                 alt="YEOUBI"
                 className="h-10 md:h-12 w-auto"
+                width="120"
+                height="40"
+                loading="lazy"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   e.currentTarget.nextElementSibling?.classList.remove('hidden');
@@ -208,7 +211,10 @@ const Header = () => {
                 <img
                   src="/logo-placeholder.png"
                   alt="YEOUBI"
-                  className="h-8 w-auto"
+                  className="h-10 md:h-12 w-auto"
+                  width="120"
+                  height="40"
+                  loading="lazy"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     e.currentTarget.nextElementSibling?.classList.remove('hidden');
@@ -315,9 +321,11 @@ const Header = () => {
       </AnimatePresence>
 
       {/* Search Modal */}
-      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      <Suspense fallback={null}>
+                  <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+                </Suspense>
     </>
   );
 };
 
-export default Header;
+export default memo(Header);

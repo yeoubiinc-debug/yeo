@@ -12,6 +12,7 @@ import {
   Truck,
   Banknote,
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useCartStore, CartItem } from '@/stores/cartStore';
 import { toast } from 'sonner';
@@ -32,6 +33,7 @@ interface SiteSettings {
 const UPI_ID = 'stevevijay360@okhdfcbank';
 
 const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
+  const { user } = useAuth(); // ✅ Moved to top level
   const { items, clearCart } = useCartStore();
 
   const [step, setStep] = useState<'details' | 'payment'>('details');
@@ -151,9 +153,14 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
     }
   };
 
-  // ✅ FIX: This function was missing its declaration — it was orphaned code before
+  // ✅ Single, clean definition — no duplicate body
   const handleProceedToPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      toast.error('Please login before placing an order');
+      return;
+    }
 
     if (cartItems.length === 0) {
       toast.error('Your cart is empty');
@@ -191,7 +198,10 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
         fee_amount: feeAmount,
       }));
 
-      const { data: insertedBookings, error } = await supabase.from('bookings').insert(bookings).select();
+      const { data: insertedBookings, error } = await supabase
+        .from('bookings')
+        .insert(bookings)
+        .select();
       if (error || !insertedBookings) throw error;
 
       if (paymentMethod === 'cod') {
@@ -207,14 +217,16 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
         handlePaymentClose();
       } else {
         if (!(window as any).Razorpay) {
-          toast.error('Payment system is loading, please try again in a moment. If using an ad-blocker, try pausing it.');
+          toast.error(
+            'Payment system is loading, please try again in a moment. If using an ad-blocker, try pausing it.'
+          );
           setIsSubmitting(false);
           return;
         }
 
         const options = {
           key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-          amount: Math.round(finalAmount * 100), // amount in paise
+          amount: Math.round(finalAmount * 100),
           currency: 'INR',
           name: 'YEOUBI',
           description: 'Order Payment',
@@ -224,7 +236,9 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
               status: 'completed',
               razorpay_payment_id: response.razorpay_payment_id,
             }));
-            const { error: updError } = await supabase.from('bookings').upsert(updateData);
+            const { error: updError } = await supabase
+              .from('bookings')
+              .upsert(updateData);
             if (updError) {
               console.error('Failed to update booking status', updError);
               toast.error('Payment succeeded but could not update order status.');
@@ -255,24 +269,24 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
   };
 
   const handleUpiAppOpen = (app: string) => {
-    let url = `upi://pay?pa=${UPI_ID}&am=${total.toFixed(
-      2
-    )}&tn=${encodeURIComponent(formData.phone || 'Order Payment')}&cu=INR`;
+    let url = `upi://pay?pa=${UPI_ID}&am=${total.toFixed(2)}&tn=${encodeURIComponent(
+      formData.phone || 'Order Payment'
+    )}&cu=INR`;
 
     if (app === 'gpay')
-      url = `tez://upi/pay?pa=${UPI_ID}&am=${total.toFixed(
-        2
-      )}&tn=${encodeURIComponent(formData.phone || 'Order Payment')}&cu=INR`;
+      url = `tez://upi/pay?pa=${UPI_ID}&am=${total.toFixed(2)}&tn=${encodeURIComponent(
+        formData.phone || 'Order Payment'
+      )}&cu=INR`;
 
     if (app === 'paytm')
-      url = `paytmmp://pay?pa=${UPI_ID}&am=${total.toFixed(
-        2
-      )}&tn=${encodeURIComponent(formData.phone || 'Order Payment')}&cu=INR`;
+      url = `paytmmp://pay?pa=${UPI_ID}&am=${total.toFixed(2)}&tn=${encodeURIComponent(
+        formData.phone || 'Order Payment'
+      )}&cu=INR`;
 
     if (app === 'phonepe')
-      url = `phonepe://pay?pa=${UPI_ID}&am=${total.toFixed(
-        2
-      )}&tn=${encodeURIComponent(formData.phone || 'Order Payment')}&cu=INR`;
+      url = `phonepe://pay?pa=${UPI_ID}&am=${total.toFixed(2)}&tn=${encodeURIComponent(
+        formData.phone || 'Order Payment'
+      )}&cu=INR`;
 
     window.open(url, '_blank');
   };
@@ -304,7 +318,6 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
         >
           {step === 'details' ? (
             <>
-              {/* ---------- DETAILS FORM ---------- */}
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold">Complete Your Order</h2>
                 <button onClick={onClose} className="p-2 hover:bg-muted rounded-full">
@@ -312,12 +325,13 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                 </button>
               </div>
 
-              {/* ORDER SUMMARY */}
               <div className="glass p-4 rounded-xl mb-6">
                 <h3 className="font-medium mb-3">Order Summary</h3>
                 {cartItems.map((item, i) => (
                   <div key={i} className="flex justify-between text-sm mb-1">
-                    <span>{item.product.name} ({item.size}) × {item.quantity}</span>
+                    <span>
+                      {item.product.name} ({item.size}) × {item.quantity}
+                    </span>
                     <span>₹{item.product.price * item.quantity}</span>
                   </div>
                 ))}
@@ -338,9 +352,7 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                   <div className="flex justify-between">
                     <span>Delivery</span>
                     <span>
-                      {deliveryCharges === 0
-                        ? 'FREE'
-                        : `₹${deliveryCharges.toFixed(2)}`}
+                      {deliveryCharges === 0 ? 'FREE' : `₹${deliveryCharges.toFixed(2)}`}
                     </span>
                   </div>
 
@@ -351,13 +363,12 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                 </div>
               </div>
 
-              {/* PAYMENT METHOD */}
               <div className="mb-6 grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setPaymentMethod('prepaid')}
                   className={`p-4 border-2 rounded-xl flex gap-2 justify-center ${paymentMethod === 'prepaid'
-                    ? 'border-foreground bg-foreground/10'
-                    : 'border-border'
+                      ? 'border-foreground bg-foreground/10'
+                      : 'border-border'
                     }`}
                 >
                   <CreditCard /> Online Pay
@@ -366,15 +377,14 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                 <button
                   onClick={() => setPaymentMethod('cod')}
                   className={`p-4 border-2 rounded-xl flex gap-2 justify-center ${paymentMethod === 'cod'
-                    ? 'border-foreground bg-foreground/10'
-                    : 'border-border'
+                      ? 'border-foreground bg-foreground/10'
+                      : 'border-border'
                     }`}
                 >
                   <Banknote /> COD
                 </button>
               </div>
 
-              {/* COUPON */}
               {!appliedCoupon ? (
                 <div className="flex gap-2 mb-6">
                   <input
@@ -383,10 +393,7 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                   />
-                  <button
-                    onClick={applyCoupon}
-                    className="glass px-4 rounded-lg"
-                  >
+                  <button onClick={applyCoupon} className="glass px-4 rounded-lg">
                     Apply
                   </button>
                 </div>
@@ -401,7 +408,6 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                 </div>
               )}
 
-              {/* FORM */}
               <form onSubmit={handleProceedToPayment} className="space-y-4">
                 <input
                   placeholder="Full Name"
@@ -410,7 +416,6 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
-
                 <input
                   placeholder="Phone"
                   className="w-full glass p-3 rounded-xl"
@@ -418,7 +423,6 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
                 />
-
                 <input
                   placeholder="Email"
                   className="w-full glass p-3 rounded-xl"
@@ -426,7 +430,6 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                 />
-
                 <textarea
                   placeholder="Delivery Address"
                   className="w-full glass p-3 rounded-xl"
@@ -435,7 +438,6 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                   required
                 />
-
                 <textarea
                   placeholder="Remarks (optional)"
                   className="w-full glass p-3 rounded-xl"
@@ -466,7 +468,6 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
             </>
           ) : (
             <>
-              {/* PAYMENT SCREEN */}
               <div className="flex justify-between mb-4">
                 <h2 className="text-2xl font-bold">Complete Payment</h2>
                 <div className="flex gap-2 items-center text-muted-foreground">
@@ -487,14 +488,9 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
                 <p className="text-4xl font-bold">₹{total.toFixed(2)}</p>
               </div>
 
-              {/* STATIC QR */}
               <div className="flex justify-center mb-6">
                 <div className="glass p-4 rounded-2xl">
-                  <img
-                    src={upiQr}
-                    alt="UPI QR"
-                    className="w-56 h-56 object-contain"
-                  />
+                  <img src={upiQr} alt="UPI QR" className="w-56 h-56 object-contain" />
                   <p className="text-xs text-center mt-2 text-muted-foreground">
                     Scan with any UPI app
                   </p>
@@ -502,15 +498,24 @@ const BookingForm = ({ isOpen, onClose, selectedItems }: BookingFormProps) => {
               </div>
 
               <div className="grid grid-cols-3 gap-3 mb-6">
-                <button onClick={() => handleUpiAppOpen('gpay')} className="glass p-3 rounded-xl text-center">
+                <button
+                  onClick={() => handleUpiAppOpen('gpay')}
+                  className="glass p-3 rounded-xl text-center"
+                >
                   <Smartphone className="mx-auto mb-1" />
                   GPay
                 </button>
-                <button onClick={() => handleUpiAppOpen('paytm')} className="glass p-3 rounded-xl text-center">
+                <button
+                  onClick={() => handleUpiAppOpen('paytm')}
+                  className="glass p-3 rounded-xl text-center"
+                >
                   <Smartphone className="mx-auto mb-1" />
                   Paytm
                 </button>
-                <button onClick={() => handleUpiAppOpen('phonepe')} className="glass p-3 rounded-xl text-center">
+                <button
+                  onClick={() => handleUpiAppOpen('phonepe')}
+                  className="glass p-3 rounded-xl text-center"
+                >
                   <Smartphone className="mx-auto mb-1" />
                   PhonePe
                 </button>
