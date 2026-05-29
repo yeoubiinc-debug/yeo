@@ -35,6 +35,7 @@ const Index = () => {
 
         <main>
           <Hero />
+          <ProductGrid />
           <SectionGrid />
           <ComingSoon />
           <BrandPhilosophy />
